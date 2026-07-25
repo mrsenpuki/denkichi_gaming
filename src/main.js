@@ -84,6 +84,7 @@ const state = {
   verticalVelocity: 0,
   grounded: true,
   inCar: false,
+  activeCarIndex: 0,
   carSpeed: 0,
   keys: new Set(),
   pointerActive: false,
@@ -111,11 +112,14 @@ const scorePopups = [];
 const playerRadius = 0.55;
 const buildingSizeMultiplier = 2;
 const buildingColliderMultiplier = 0.85;
-const carSpawn = {
-  x: 2.4,
-  z: 0,
-  yaw: Math.PI / 2,
-};
+const carSpawns = [
+  { asset: "sedan.glb", x: 2.4, z: 0, yaw: Math.PI / 2, scale: 1.45, paintColor: 0x2f86d9 },
+  { asset: "taxi.glb", x: -24, z: 14, yaw: Math.PI * 0.5, scale: 1.25 },
+  { asset: "van.glb", x: 24, z: -12, yaw: -Math.PI * 0.5, scale: 1.22 },
+  { asset: "police.glb", x: 12, z: 24, yaw: Math.PI, scale: 1.2 },
+  { asset: "delivery.glb", x: -12, z: -24, yaw: 0, scale: 1.2 },
+];
+const drivableCars = [];
 
 bestEl.textContent = `${state.best}m`;
 
@@ -127,9 +131,16 @@ scene.add(map, roadMarks, collectibles, props);
 
 const player = createRunner();
 scene.add(player.root);
-const car = createCar();
+const car = createCar(carSpawns[0]);
+drivableCars.push(car);
 scene.add(car.root);
-loadKenneyCar();
+loadKenneyCar(car, carSpawns[0]);
+for (let i = 1; i < carSpawns.length; i += 1) {
+  const vehicle = createCar(carSpawns[i]);
+  drivableCars.push(vehicle);
+  scene.add(vehicle.root);
+  loadKenneyCar(vehicle, carSpawns[i]);
+}
 const objectiveArrow = createObjectiveArrow();
 scene.add(objectiveArrow);
 
@@ -202,12 +213,12 @@ function createObjectiveArrow() {
   return group;
 }
 
-function createCarLiveryTexture() {
+function createCarLiveryTexture(baseColor = 0x2f86d9) {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 512;
   const context = canvas.getContext("2d");
-  context.fillStyle = "#2f86d9";
+  context.fillStyle = `#${baseColor.toString(16).padStart(6, "0")}`;
   context.fillRect(0, 0, canvas.width, canvas.height);
   context.fillStyle = "#f7f7ef";
   context.fillRect(214, 0, 84, 512);
@@ -345,11 +356,6 @@ function placeKenneySceneAssets() {
   loadCityAsset("detail-overhang-wide.glb", new THREE.Vector3(27, 2.15, -10), 1.8, -Math.PI / 2);
   loadCityAsset("detail-parasol-a.glb", new THREE.Vector3(31, 0, 11), 1.8, 0.4);
   loadCityAsset("detail-parasol-b.glb", new THREE.Vector3(-30, 0, -12), 1.6, -0.3, { collider: [0.8, 0.8, 2.2] });
-
-  loadCarAsset("taxi.glb", new THREE.Vector3(-24, 0, 14), 1.25, Math.PI * 0.5, { collider: [1.2, 2.0, 1.4] });
-  loadCarAsset("van.glb", new THREE.Vector3(24, 0, -12), 1.22, -Math.PI * 0.5, { collider: [1.25, 2.05, 1.5] });
-  loadCarAsset("police.glb", new THREE.Vector3(12, 0, 24), 1.2, Math.PI, { collider: [1.15, 2.0, 1.4] });
-  loadCarAsset("delivery.glb", new THREE.Vector3(-12, 0, -24), 1.2, 0, { collider: [1.2, 2.15, 1.6] });
 
   loadCarAsset("box.glb", new THREE.Vector3(-4.4, 0, 19), 1.6, 0.2, { collider: [0.65, 0.65, 1.3] });
   loadCarAsset("box.glb", new THREE.Vector3(4.6, 0, -19), 1.45, -0.3, { collider: [0.6, 0.6, 1.2] });
@@ -654,15 +660,19 @@ function spawnLetters() {
   }
 }
 
-function createCar() {
+function createCar(spawn) {
   const root = new THREE.Group();
-  root.position.set(carSpawn.x, 0, carSpawn.z);
-  root.rotation.y = carSpawn.yaw;
+  root.position.set(spawn.x, 0, spawn.z);
+  root.rotation.y = spawn.yaw;
 
   const model = new THREE.Group();
   root.add(model);
 
-  const body = box("fallback-car-body", new THREE.Vector3(2.6, 0.72, 4.2), new THREE.Vector3(0, 0.72, 0), materials.carPaint);
+  const fallbackPaint = new THREE.MeshToonMaterial({
+    color: spawn.paintColor || 0x2f86d9,
+    map: createCarLiveryTexture(spawn.paintColor || 0x2f86d9),
+  });
+  const body = box("fallback-car-body", new THREE.Vector3(2.6, 0.72, 4.2), new THREE.Vector3(0, 0.72, 0), fallbackPaint);
   const cabin = box("fallback-car-cabin", new THREE.Vector3(1.65, 0.82, 1.65), new THREE.Vector3(0, 1.28, -0.32), materials.glass);
   model.add(body, cabin);
 
@@ -679,14 +689,14 @@ function createCar() {
   return { root, model };
 }
 
-function loadKenneyCar() {
+function loadKenneyCar(vehicle, config) {
   const loader = new GLTFLoader();
   loader.load(
-    "assets/kenney/car/sedan.glb",
+    `assets/kenney/car/${config.asset}`,
     (gltf) => {
-      car.model.clear();
+      vehicle.model.clear();
       const model = gltf.scene;
-      model.scale.setScalar(1.45);
+      model.scale.setScalar(config.scale);
       model.rotation.y = 0;
       model.position.y = 0.05;
       model.traverse((child) => {
@@ -697,24 +707,52 @@ function loadKenneyCar() {
             child.material = child.material.clone();
             const name = `${child.name} ${child.material.name || ""}`.toLowerCase();
             const isDarkPart = name.includes("wheel") || name.includes("tire") || name.includes("glass") || name.includes("window");
-            if (!isDarkPart) {
+            if (config.paintColor && !isDarkPart) {
               child.material = new THREE.MeshToonMaterial({
-                color: 0x2f86d9,
-                map: createCarLiveryTexture(),
+                color: config.paintColor,
+                map: createCarLiveryTexture(config.paintColor),
               });
-            } else if (child.material.color) {
+            } else if (isDarkPart && child.material.color) {
               child.material.color.lerp(new THREE.Color(0x182326), 0.35);
             }
           }
         }
       });
-      car.model.add(model);
+      vehicle.model.add(model);
     },
     undefined,
     () => {
       // The fallback car stays active when local GLB loading is unavailable.
     }
   );
+}
+
+function getActiveCar() {
+  return drivableCars[state.activeCarIndex] || drivableCars[0] || car;
+}
+
+function findNearestCar(maxDistance = 3.4) {
+  let nearest = null;
+  let nearestIndex = 0;
+  let nearestDistance = maxDistance;
+  drivableCars.forEach((vehicle, index) => {
+    const distance = distance2D(player.root.position, vehicle.root.position);
+    if (distance < nearestDistance) {
+      nearest = vehicle;
+      nearestIndex = index;
+      nearestDistance = distance;
+    }
+  });
+  return nearest ? { vehicle: nearest, index: nearestIndex } : null;
+}
+
+function resetDrivableCars() {
+  drivableCars.forEach((vehicle, index) => {
+    const spawn = carSpawns[index];
+    vehicle.root.position.set(spawn.x, 0, spawn.z);
+    vehicle.root.rotation.set(0, spawn.yaw, 0);
+  });
+  state.activeCarIndex = 0;
 }
 
 function loadCityAsset(fileName, position, scale, rotationY, options = {}) {
@@ -850,6 +888,7 @@ function updatePlayer(dt, time) {
 }
 
 function updateCar(dt) {
+  const activeCar = getActiveCar();
   const forwardInput = getMoveForwardInput();
   const turnInput = clamp(
     Number(state.keys.has("KeyA") || state.keys.has("ArrowLeft")) -
@@ -869,29 +908,29 @@ function updateCar(dt) {
   }
 
   if (Math.abs(state.carSpeed) > 0.2) {
-    car.root.rotation.y += turnInput * dt * 1.85 * Math.sign(state.carSpeed || 1);
+    activeCar.root.rotation.y += turnInput * dt * 1.85 * Math.sign(state.carSpeed || 1);
   }
 
-  const direction = new THREE.Vector3(Math.sin(car.root.rotation.y), 0, Math.cos(car.root.rotation.y));
-  const nextX = clamp(car.root.position.x + direction.x * state.carSpeed * dt, -mapBounds, mapBounds);
-  const nextZ = clamp(car.root.position.z + direction.z * state.carSpeed * dt, -mapBounds, mapBounds);
+  const direction = new THREE.Vector3(Math.sin(activeCar.root.rotation.y), 0, Math.cos(activeCar.root.rotation.y));
+  const nextX = clamp(activeCar.root.position.x + direction.x * state.carSpeed * dt, -mapBounds, mapBounds);
+  const nextZ = clamp(activeCar.root.position.z + direction.z * state.carSpeed * dt, -mapBounds, mapBounds);
 
-  const hitX = findCollider(nextX, car.root.position.z, 0, 1.35);
+  const hitX = findCollider(nextX, activeCar.root.position.z, 0, 1.35);
   if (!hitX) {
-    car.root.position.x = nextX;
+    activeCar.root.position.x = nextX;
   } else if (hitX.destructible && Math.abs(state.carSpeed) > 8) {
     destroySafetyGate(hitX.gate);
-    car.root.position.x = nextX;
+    activeCar.root.position.x = nextX;
   } else {
     state.carSpeed *= -0.25;
   }
 
-  const hitZ = findCollider(car.root.position.x, nextZ, 0, 1.35);
+  const hitZ = findCollider(activeCar.root.position.x, nextZ, 0, 1.35);
   if (!hitZ) {
-    car.root.position.z = nextZ;
+    activeCar.root.position.z = nextZ;
   } else if (hitZ.destructible && Math.abs(state.carSpeed) > 8) {
     destroySafetyGate(hitZ.gate);
-    car.root.position.z = nextZ;
+    activeCar.root.position.z = nextZ;
   } else {
     state.carSpeed *= -0.25;
   }
@@ -929,6 +968,7 @@ function findCollider(x, z, y, radius = playerRadius) {
 
 function destroySafetyGate(gate) {
   if (!gate || gate.userData.destroyed) return;
+  const activeCar = getActiveCar();
   const earned = 100 * state.combo;
   state.score += earned;
   state.lastGateScore = earned;
@@ -940,7 +980,7 @@ function destroySafetyGate(gate) {
   gate.userData.falling = true;
   gate.userData.fallProgress = 0;
   const gateFront = new THREE.Vector3(Math.sin(gate.rotation.y), 0, Math.cos(gate.rotation.y));
-  const carOffset = car.root.position.clone().sub(gate.position);
+  const carOffset = activeCar.root.position.clone().sub(gate.position);
   gate.userData.fallDirection = gateFront.dot(carOffset) > 0 ? -1 : 1;
   for (const collider of gate.userData.colliders || []) {
     collider.disabled = true;
@@ -1034,7 +1074,7 @@ function clearScorePopups() {
 
 function spawnSafetyGateAhead() {
   if (!state.started) return;
-  const target = state.inCar ? car.root : player.root;
+  const target = state.inCar ? getActiveCar().root : player.root;
   const position = target.position.clone().addScaledVector(getCameraForward(cameraForward), 7);
   const gateX = clamp(position.x, -mapBounds + 5, mapBounds - 5);
   const gateZ = clamp(position.z, -mapBounds + 5, mapBounds - 5);
@@ -1095,17 +1135,20 @@ function toggleCar() {
   if (!state.started || state.paused) return;
 
   if (state.inCar) {
+    const activeCar = getActiveCar();
     state.inCar = false;
     state.carSpeed = 0;
     player.root.visible = true;
-    const exitOffset = new THREE.Vector3(1.9, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), car.root.rotation.y);
-    player.root.position.copy(car.root.position).add(exitOffset);
+    const exitOffset = new THREE.Vector3(1.9, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), activeCar.root.rotation.y);
+    player.root.position.copy(activeCar.root.position).add(exitOffset);
     player.root.position.y = 0;
     moveVelocity.set(0, 0, 0);
     return;
   }
 
-  if (distance2D(player.root.position, car.root.position) < 2.8) {
+  const nearest = findNearestCar();
+  if (nearest) {
+    state.activeCarIndex = nearest.index;
     state.inCar = true;
     state.carSpeed = 0;
     player.root.visible = false;
@@ -1132,7 +1175,7 @@ function resolveDeliveries(time) {
   if (state.letters <= 0 || !deliveryPoints.length) return;
 
   const activePoint = deliveryPoints[state.activeDeliveryIndex];
-  const targetRoot = state.inCar ? car.root : player.root;
+  const targetRoot = state.inCar ? getActiveCar().root : player.root;
   if (distance2D(targetRoot.position, activePoint.position) > 2.4) return;
 
   state.letters -= 1;
@@ -1165,7 +1208,7 @@ function getObjectiveTarget() {
 
   let nearest = null;
   let nearestDistance = Infinity;
-  const targetRoot = state.inCar ? car.root : player.root;
+  const targetRoot = state.inCar ? getActiveCar().root : player.root;
   for (const letter of collectibles.children) {
     if (letter.userData.hit || !letter.visible) continue;
     const distance = distance2D(targetRoot.position, letter.position);
@@ -1186,7 +1229,7 @@ function updateObjectiveGuide(time) {
     return;
   }
 
-  const targetRoot = state.inCar ? car.root : player.root;
+  const targetRoot = state.inCar ? getActiveCar().root : player.root;
   objectiveVector.subVectors(target.position, targetRoot.position);
   objectiveVector.y = 0;
   state.objectiveDistance = objectiveVector.length();
@@ -1204,7 +1247,7 @@ function updateObjectiveGuide(time) {
 function updateCamera(dt) {
   const orbitDistance = state.cameraMode ? 15 : 10;
   const orbitHeight = state.cameraMode ? 10 : 5.5;
-  const targetRoot = state.inCar ? car.root : player.root;
+  const targetRoot = state.inCar ? getActiveCar().root : player.root;
   cameraOffset.set(
     Math.sin(state.cameraYaw) * orbitDistance,
     orbitHeight,
@@ -1278,13 +1321,13 @@ function startGame() {
   state.verticalVelocity = 0;
   state.grounded = true;
   state.inCar = false;
+  state.activeCarIndex = 0;
   state.carSpeed = 0;
   moveVelocity.set(0, 0, 0);
   player.root.position.set(0, 0, 0);
   player.root.visible = true;
   player.root.rotation.set(0, Math.PI, 0);
-  car.root.position.set(carSpawn.x, 0, carSpawn.z);
-  car.root.rotation.y = carSpawn.yaw;
+  resetDrivableCars();
   objectiveArrow.visible = false;
   resetSafetyGates();
   setActiveDeliveryPoint(0);
@@ -1486,6 +1529,7 @@ window.__alleyMessengerDebug = {
   state,
   player: player.root,
   car: car.root,
+  cars: drivableCars.map((vehicle) => vehicle.root),
   spawnSafetyGate: (x, z, rotationY = 0) => createSafetyGate(x, z, rotationY),
   spawnSafetyGateAt: (x, z, rotationY = 0) => createSafetyGate(x, z, rotationY),
 };
