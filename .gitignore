@@ -1,0 +1,15 @@
+# Local server / verification artifacts
+verify-server.*.log
+.chrome-*/
+Models/
+
+# Generated review screenshots
+/*-check.png
+/mobile-game-check*.png
+/score-combo-check.png
+/objective-check.png
+/delivery-check.png
+/ui-*-check.png
+
+# Source archives are not needed for GitHub Pages once assets are extracted.
+/*.zip

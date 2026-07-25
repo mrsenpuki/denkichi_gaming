@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+    <title>Alley Messenger</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="game-shell">
+      <canvas id="scene" aria-label="Alley Messenger game"></canvas>
+
+      <section class="top-hud" aria-label="status">
+        <div>
+          <span class="hud-label">Letters</span>
+          <strong id="letters">0</strong>
+        </div>
+        <div>
+          <span class="hud-label">Walked</span>
+          <strong id="distance">0m</strong>
+        </div>
+        <div>
+          <span class="hud-label">Best</span>
+          <strong id="best">0m</strong>
+        </div>
+        <div>
+          <span class="hud-label">Score</span>
+          <strong id="score">0</strong>
+        </div>
+        <div>
+          <span class="hud-label">Delivered</span>
+          <strong id="delivered">0</strong>
+        </div>
+        <div id="comboHud" class="combo-hud">
+          <span class="hud-label">Combo</span>
+          <strong id="combo">x1</strong>
+          <span class="combo-meter" aria-hidden="true"><span id="comboMeter"></span></span>
+        </div>
+      </section>
+
+      <section class="objective-hud" aria-label="objective">
+        <span id="objectiveLabel">Find a letter</span>
+        <strong id="objectiveDistance">--m</strong>
+      </section>
+
+      <section class="desktop-controls" aria-label="keyboard controls">
+        <span><kbd>WASD</kbd> Move</span>
+        <span><kbd>Drag</kbd> Camera</span>
+        <span><kbd>Space</kbd> Jump</span>
+        <span><kbd>E</kbd> Car</span>
+        <span><kbd>G</kbd> Gate</span>
+      </section>
+
+      <nav class="side-tools" aria-label="tools">
+        <button id="menuButton" type="button" title="Menu" aria-label="Menu">≡</button>
+        <button id="soundButton" type="button" title="Sound" aria-label="Sound">♪</button>
+        <button id="colorButton" type="button" title="Style" aria-label="Style">▣</button>
+        <button id="viewButton" type="button" title="View" aria-label="View">◇</button>
+      </nav>
+
+      <section class="touch-controls" aria-label="mobile controls">
+        <div id="moveStick" class="move-stick" role="application" aria-label="Move">
+          <div id="moveKnob" class="move-knob"></div>
+        </div>
+        <div class="touch-actions">
+          <button id="jumpButton" type="button" aria-label="Jump">Jump</button>
+          <button id="carButton" type="button" aria-label="Enter or exit car">Car</button>
+          <button id="gateButton" type="button" aria-label="Place safety gate">Gate</button>
+        </div>
+      </section>
+
+      <section id="overlay" class="overlay" aria-label="start panel">
+        <h1>Alley Messenger</h1>
+        <button id="startButton" type="button">Start</button>
+      </section>
+    </main>
+
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>
